@@ -64,6 +64,11 @@ LIGHTNING_RANGE = 5
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 8
 
+# Cast_Fireball constants
+
+FIREBALL_RADIUS = 3
+FIREBALL_DAMAGE = 12
+
 # 20 frames per second maximum
 
 LIMIT_FPS = 20
@@ -146,6 +151,12 @@ class Object:
         dx = int(round(dx / distance))
         dy = int(round(dy / distance))
         self.move(dx, dy)
+
+    def distance(self, x, y):
+
+        # Return the distance to some co-ordinates
+
+        return math.sqrt((x - self.x) ** 2 + (y -self.y) ** 2)
 
     def distance_to(self, other):
 
@@ -318,7 +329,7 @@ class ConfusedMonster:
 
         else: # Restore the previous AI (this one will be deleted because it's not referenced anymore)
             self.owner.ai = self.old_ai
-            message('The ' self.owner.name + ' is no longer confused!', libtcod.red)
+            message('The ' + self.owner.name + ' is no longer confused!', libtcod.red)
 
 def cast_heal():
 
@@ -348,18 +359,31 @@ def cast_lightning():
 
 def cast_confuse():
 
-    # Find closest enemy in range and confuse it
+    # Ask the player for a target to confuse
 
-    monster = closest_monster(CONFUSE_RANGE)
-    if monster is None: # No enemy found within maximum range
-        message('No enemy is close enough to confuse.', libtcod.red)
-        return 'cancelled'
+    message('Left-click an enemy to confuse it, or right-click to cancel.', libtcod.light_cyan)
+    monster = target.monster(CONFUSE_RANGE)
+    if monster is None: return 'cancelled'
 
     # Replace the monster's AI with a "confused" one; after some turns it will restore the old AI
     old_ai = monster.ai
     monster.ai = ConfusedMonster(old_ai)
     monster.ai.owner = monster # Tell the new component who owns it
     message('The eyes of the ' + monster.name + ' look vacant, as he starts to stumble around!', libtcod.light_green)
+
+def cast_fireball():
+
+    # Ask the player for a target tile to throw a fireball at
+
+    message('Left-click a target tile for the fireball, or right-click to cancel.', libtcod.light_cyan)
+    (x, y) = target_tile()
+    if x is None: return 'cancelled'
+    message 'The fireball explodes, burning everything within ' + str(FIREBALL_RADIUS) + ' tiles!', libtcod.orange)
+
+    for obj in objects: # Damage every fighter in range, including the player
+        if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
+            message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', libtcod.orange)
+            obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 def closest_monster(max_range):
 
@@ -378,6 +402,41 @@ def closest_monster(max_range):
                 closest_enemy = object
                 closest_dist = dist
     return closest_enemy
+
+def target_tile(max_range=None):
+
+    # Return the position of a tile left-clicked in player's FOV (optionally in a range), or (None, None) if right-clicked.
+    global key, mouse
+    while True:
+
+        # Render the screen. This erases the inventory and shows the names of objects under the mouse.
+
+        libtcod.console_flush()
+        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE,key,mouse)
+        render_all()
+
+        (x, y) = (mouse.cx, mouse.cy)
+
+        if mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y and
+            (max_range is None or player.distance(x, y) <= max_range)):
+            return (x, y)
+
+        if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
+            return (None, None) # cancel if the player right-clicked or pressed Escape
+
+def target_monster(max_range=None):
+
+    # Returns a clicked monster inside FOV up to a range, or None if right-clicked
+    while True:
+        (x, y) = target_tile(max_range)
+        if x is None: # Player cancelled
+            return None
+
+        # Return the first clicked monster, otherwise continue looping
+
+        for obj in objects:
+            if obj.x == x and obj.y == y and obj.fighter and obj != player:
+                return obj
 
 def player_death(player):
 
@@ -671,17 +730,25 @@ def place_objects(room):
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
 
-            elif dice < 70+15:
+            elif dice < 70+10:
                 
-                # create a lightning bolt scroll (15% chance)
+                # create a lightning bolt scroll (10% chance)
 
                 item_component = Item(use_function=cast_lightning)
 
                 item = Object(x, y, '#', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
 
+            elif dice < 70+10+10:
+
+                #Create a fireball scroll (10% chance)
+
+                item_component = Item(use_function=cast_fireball)
+
+                item = Object(x, y, '#', 'scroll of fireball', libtcod.light_yellow, item=item_component)
+
             else:
 
-                # Create a confuse spell (15% chance)
+                # Create a confuse scroll (10% chance)
                 item_component = Item(use_function=cast_confuse)
 
                 item = Object(x, y, '#' 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
@@ -727,6 +794,16 @@ def get_names_under_mouse():
 
     names = ', '.join(names) # join the names, separated by commas
     return names.capitalize()
+
+def drop(self):
+
+    # Add to the map and remove from the player's inventory. Also place it at the player's co-ordinates
+
+    objects.append(self.owner)
+    inventory.remove(self.owner)
+    self.owner.x = player.x
+    self.owner.y = player.y
+    message('You dropped a ' + self.owner.name + '.', libtcod.yellow)
 
 def handle_keys():
     global fov_recompute
@@ -783,6 +860,14 @@ def handle_keys():
                 chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
+
+            if key_char == 'd':
+
+                # Show the inventory; if an item is selected, drop it
+
+                chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel. \n')
+                if chosen_item is not None:
+                    chosen_item.drop()
 
             return 'didnt-take-turn'
 
