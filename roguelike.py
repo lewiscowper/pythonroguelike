@@ -370,6 +370,7 @@ def create_v_tunnel(y1, y2, x):
 
 def make_map():
     global map
+    global num_rooms
 
     # Fill map with "blocked" tiles
 
@@ -547,7 +548,7 @@ def place_objects(room):
 
         # Only place it if the tile is not blocked
 
-        if not is_blocked(x, y):
+        if not is_blocked(x, y) and not num_rooms == 0:
             if libtcod.random_get_int(0, 0, 100) < 80: #80% chance of getting an orc
 
             # Create an orc
