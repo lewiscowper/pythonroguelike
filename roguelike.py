@@ -50,6 +50,8 @@ MAX_ROOM_ITEMS = 2
 
 INVENTORY_WIDTH = 50
 
+HEAL_AMOUNT = 4
+
 # 20 frames per second maximum
 
 LIMIT_FPS = 20
@@ -229,6 +231,13 @@ class Fighter:
 
         self.owner.wait = self.attack_speed
 
+    def heal(self, amount):
+
+        # Heal by the given amount, without going over the maximum
+        self.hp += amount
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
+
 class BasicMonster:
 
     # AI for a basic monster.
@@ -254,6 +263,9 @@ class Item:
 
     # An item that can be picked up and used.
 
+    def __init__(self, use_function=None):
+        self.use_function = use_function
+
     def pick_up(self):
 
         # Add to the player's inventory and remove from the map
@@ -265,6 +277,27 @@ class Item:
             inventory.append(self.owner)
             objects.remove(self.owner)
             message('You picked up a ' + self.owner.name + '!', libtcod.green)
+
+    def use(self):
+
+        # Just call the "use_function" if it is defined
+
+        if self.use_function is None:
+            message('The ' + self.owner.name + ' cannot be used.')
+        else:
+            if self.use_function() != 'cancelled':
+                inventory.remove(self.owner) # Destroy after use, unless it was cancelled for some reason.
+
+def cast_heal():
+
+    # Heal the player
+
+    if player.fighter.hp == player.fighter.max_hp:
+        message('You are already at full health.', libtcod.red)
+        return 'cancelled'
+
+    message('Your wounds start to feel better!', libtcod.light_violet)
+    player.fighter.heal(HEAL_AMOUNT)
 
 def player_death(player):
 
@@ -552,7 +585,7 @@ def place_objects(room):
 
             # Create a healing potion
 
-            item_component = Item()
+            item_component = Item(use_function=cast_heal)
             item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
 
             objects.append(item)
@@ -647,9 +680,11 @@ def handle_keys():
 
             if key_char == 'i':
 
-                # Show the inventory
+                # Show the inventory; if an item is selected, use it
 
-                inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
+                chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
+                if chosen_item is not None:
+                    chosen_item.use()
 
             return 'didnt-take-turn'
 
@@ -733,6 +768,11 @@ def menu(header, options, width):
     libtcod.console_flush()
     key = libtcod.console_wait_for_keypress(True)
 
+    # Convert the ASCII code to an index; if it corresponds to an option, return it
+    index = key.c - ord('a')
+    if index >= 0 and index < len(options): return index
+    return None
+
 def inventory_menu(header):
 
     # Show a menu with each item of the inventory as an option
@@ -744,6 +784,11 @@ def inventory_menu(header):
         options = [item.name for item in inventory]
 
     index = menu(header, options, INVENTORY_WIDTH)
+
+    # If an item was chosen, return it
+
+    if index is None or len(inventory) == 0: return None
+    return inventory[index].item
 
 # Initialisation and Main Loop
 
