@@ -4,7 +4,11 @@ import libtcodpy as libtcod
 
 # Need sqrt function
 
-import math as math
+import math
+
+# Using textwrap module
+
+import textwrap
 
 # Some important values, first is the actual size of the window
 
@@ -14,7 +18,7 @@ SCREEN_HEIGHT = 50
 # Setting size of map
 
 MAP_WIDTH = 80
-MAP_HEIGHT = 45
+MAP_HEIGHT = 43
 
 # Parameters for the dungeon generator
 
@@ -26,6 +30,21 @@ MAX_ROOM_MONSTERS = 3
 FOV_ALGO = 0 # Default FOV algorithm
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
+
+# Number of frames to wait after moving/attacking
+PLAYER_SPEED = 2
+DEFAULT_SPEED = 8
+DEFAULT_ATTACK_SPEED = 20
+
+# Sizes and co-ordinates relevant for the GUI
+
+BAR_WIDTH = 20
+PANEL_HEIGHT = 7
+PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+
+MSG_X = BAR_WIDTH + 2
+MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
+MSG_HEIGHT = PANEL_HEIGHT - 1
 
 # 20 frames per second maximum
 
@@ -43,13 +62,15 @@ class Object:
     # This is a generic object; the player, a monster, an item, the stairs...
     # it's always represented by a character on the screen.
 
-    def __init__(self, x, y, char, name, color, blocks=False, fighter=None, ai=None):
+    def __init__(self, x, y, char, name, color, blocks=False, fighter=None, ai=None, speed=DEFAULT_SPEED):
         self.x = x
         self.y = y
         self.char = char
         self.name = name
         self.color = color
         self.blocks = blocks
+        self.speed = speed
+        self.wait = 0
 
         self.fighter = fighter
         if self.fighter: # Let the fighter component know who owns it
@@ -69,6 +90,8 @@ class Object:
 
             self.x += dx
             self.y += dy
+
+        self.wait = self.speed
 
     def draw(self):
 
@@ -157,12 +180,13 @@ class Fighter:
 
     # Combat related properties and methods (monster, player, NPC)
 
-    def __init__(self, hp, defense, power, death_function=None):
+    def __init__(self, hp, defense, power, death_function=None, attack_speed=DEFAULT_ATTACK_SPEED):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
         self.death_function = death_function
+        self.attack_speed = attack_speed
 
     def take_damage(self, damage):
 
@@ -185,11 +209,13 @@ class Fighter:
 
             # Make the target take some damage
             
-            print self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.'
+            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
             target.fighter.take_damage(damage)
 
         else:
-            print self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!'
+            message(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
+
+        self.owner.wait = self.attack_speed
 
 class BasicMonster:
 
@@ -208,15 +234,15 @@ class BasicMonster:
 
             # If the player is still alive, and the monster is close enough, attack!
 
-        elif player.fighter.hp > 0:
-            monster.fighter.attack(player)
+            elif player.fighter.hp > 0:
+                monster.fighter.attack(player)
 
 def player_death(player):
 
     # the game ended!
 
     global game_state
-    print 'You died!'
+    message('You died!', libtcod.red)
     game_state = 'dead'
 
     # For added effect, turn the player into a corpse!
@@ -227,13 +253,14 @@ def monster_death(monster):
 
     # Transform it into a nasty corpse, that doesn't block, can't be attacked and doesn't move
 
-    print monster.name.capitalize() + ' is dead!'
+    message(monster.name.capitalize() + ' is dead!', libtcod.orange)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
     monster.fighter = None
     monster.ai = None
     monster.name = 'remains of ' + monster.name
+    monster.send_to_back()
 
 def is_blocked(x, y):
 
@@ -409,13 +436,30 @@ def render_all():
 
     # Blitting contents of new console to the root console, in order to display them.
 
-    libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
+    libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, 0, 0)
+
+    # Prepare to render the GUI panel
+    libtcod.console_set_default_background(panel, libtcod.black)
+    libtcod.console_clear(panel)
+
+    # Print the game messages, one line at a time
+
+    y=1
+    for (line, color) in game_msgs:
+        libtcod.console_set_default_foreground(panel, color)
+        libtcod.console_print_ex(panel, MSG_X, y, libtcod.BKGND_NONE, libtcod.LEFT, line)
+        y += 1
 
     # Show the player's stats
+    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
+        libtcod.light_red, libtcod.darker_red)
 
-    libtcod.console_set_default_foreground(con, libtcod.white)
-    libtcod.console_print_ex(0, 1, SCREEN_HEIGHT -2, libtcod.BKGND_NONE, libtcod.LEFT
-        'HP: ' + str(player.fighter.hp) + '/' + str(player.fighter.max_hp))
+    # Display the names of objects under the mouse
+    libtcod.console_set_default_foreground(panel, libtcod.light_gray)
+    libtcod.console_print_ex(panel, 1, 0, libtcod.BKGND_NONE, libtcod.LEFT, get_names_under_mouse())
+
+    # blit the contents of the "panel" to the root console
+    libtcod.console_blit(panel, 0, 0, SCREEN_WIDTH, PANEL_HEIGHT, 0, 0, PANEL_Y)
 
 def place_objects(room):
 
@@ -475,10 +519,24 @@ def player_move_or_attack(dx, dy):
         player.move(dx, dy)
         fov_recompute = True
 
+def get_names_under_mouse():
+    global mouse
+
+    # Return a string with the names of all objects under the mouse
+
+    (x, y) = (mouse.cx, mouse.cy)
+
+    # Create a list with the names of all objects at the mouse co-ordinates and in FOV
+    names = [obj.name for obj in objects
+        if obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y)]
+
+    names = ', '.join(names) # join the names, separated by commas
+    return names.capitalize()
+
 def handle_keys():
     global fov_recompute
+    global keys
 
-    key = libtcod.console_check_for_keypress()
     if key.vk == libtcod.KEY_ENTER and key.lalt:
 
         # Alt+Enter: toggle fullscreen
@@ -486,9 +544,12 @@ def handle_keys():
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
 
     elif key.vk == libtcod.KEY_ESCAPE:
-        return 'exit' # exit game 
+        return 'exit' # Exit game 
 
-        # Exit game
+    if player.wait > 0: # Don't take a turn yet if still waiting
+        player.wait -= 1
+        return
+
     if game_state == 'playing':
 
     # Movement keys
@@ -507,6 +568,41 @@ def handle_keys():
         else:
             return 'didnt-take-turn'
 
+def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
+
+    # Render a bar (HP, experience, etc). First calculate the width of the bar
+    bar_width = int(float(value) / maximum * total_width)
+
+    # Render the background first
+    libtcod.console_set_default_background(panel, back_color)
+    libtcod.console_rect(panel, x, y, total_width, 1, False, libtcod.BKGND_SCREEN)
+
+    # Now render the bar on top
+    libtcod.console_set_default_background(panel, bar_color)
+    if bar_width > 0:
+        libtcod.console_rect(panel, x, y, bar_width, 1, False, libtcod.BKGND_SCREEN)
+
+    # Finally, some centred text with the values
+    libtcod.console_set_default_foreground(panel, libtcod.white)
+    libtcod.console_print_ex(panel, x + total_width / 2, y, libtcod.BKGND_NONE, libtcod.CENTER,
+        name + ': ' + str(value) + '/' + str(maximum))
+
+
+def message(new_msg, color = libtcod.white):
+
+    # Split the message if necessary, among multiple lines
+
+    new_msg_lines = textwrap.wrap(new_msg, MSG_WIDTH)
+
+    for line in new_msg_lines:
+
+        # If the buffer is full, remove the first line to make room for the new one
+        if len(game_msgs) == MSG_HEIGHT:
+            del game_msgs[0]
+
+        # Add the new line as a tuple, with the text and the colour.
+
+        game_msgs.append( (line, color) )
 
 # Initialisation and Main Loop
 
@@ -524,17 +620,20 @@ libtcod.sys_set_fps(LIMIT_FPS)
 
 # Creating a new off screen console that occupies the whole screen
 
-con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 
 # Creating the object representing the player
 
-fighter_component = Fighter(hp=30, defense=2, power=5)
+fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 
-player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component, death_function=player_death)
+player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component, speed=PLAYER_SPEED)
 
 # The list of objects
 
 objects = [player]
+
+# Create the list of game messages and their colours, starts empty
+game_msgs = []
 
 # Generate map (for now it's not drawn to the screen)
 make_map()
@@ -552,9 +651,18 @@ fov_recompute = True
 game_state = 'playing'
 player_action = None
 
+panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
+message('Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.', libtcod.red)
+
+mouse = libtcod.Mouse()
+key = libtcod.Key()
+
 # Now for the main loop, this logic will keep running as long as the window is not closed.
 
 while not libtcod.console_is_window_closed():
+
+    libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE,key,mouse)
 
     # Render the screen
     render_all()
@@ -572,7 +680,10 @@ while not libtcod.console_is_window_closed():
     if player_action == 'exit':
         break
 
-    if game_state == 'playing' and player_action != 'didnt-take-turn':
+    if game_state == 'playing':
         for object in objects:
             if object.ai:
-                object.ai.take_turn()
+                if object.wait > 0: # Don't take a turn yet if still waiting
+                    object.wait -= 1
+                else:
+                    object.ai.take_turn()
