@@ -27,6 +27,7 @@ MAX_ROOMS = 30
  
 #spell values
 HEAL_AMOUNT = 40
+MANABUFF_AMOUNT = 40
 LIGHTNING_DAMAGE = 40
 LIGHTNING_RANGE = 5
 CONFUSE_RANGE = 8
@@ -163,13 +164,16 @@ class Object:
 
 class Fighter:
     #combat-related properties and methods (monster, player, NPC).
-    def __init__(self, hp, defense, power, xp, death_function=None):
+    def __init__(self, hp, mp, defense, power, xp, death_function=None, manaless_function=None):
         self.base_max_hp = hp
         self.hp = hp
+        self.base_max_mp = mp
+        self.mp = mp
         self.base_defense = defense
         self.base_power = power
         self.xp = xp
         self.death_function = death_function
+        self.manaless_function = manaless_function
 
     @property
     def power(self): #return actual power, by summing up the bonuses from all equipped items
@@ -185,6 +189,11 @@ class Fighter:
     def max_hp(self): #return actual max_hp, by summing up the bonuses from all equipped items
         bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
         return self.base_max_hp + bonus
+
+    @property
+    def max_mp(self): #return actual max_hp, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.max_mp_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_max_mp + bonus
 
     def attack(self, target):
         #a simple formula for attack damage
@@ -215,6 +224,22 @@ class Fighter:
         self.hp += amount
         if self.hp > self.max_hp:
             self.hp = self.max_hp
+
+    def manabuff(self, amount):
+        #heal by the given amount, without going over the maximum
+        self.mp += amount
+        if self.mp > self.max_mp:
+            self.mp = self.max_mp
+
+    def manadecrease(self, mana):
+        #decrease mana by the given amount
+        self.mp -= mana
+        
+        if self.mp <= 0:
+            function = self.manaless_function
+            if function is not None:
+                function(self.owner)
+            self.mp = 0
  
 class BasicMonster:
     #AI for a basic monster.
@@ -291,10 +316,11 @@ class Item:
 
 class Equipment:
     #an object that can be equipped, yielding bonuses. Automatically adds the Item component.
-    def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0):
+    def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0, max_mp_bonus=0):
         self.power_bonus = power_bonus
         self.defense_bonus = defense_bonus
         self.max_hp_bonus = max_hp_bonus
+        self.max_mp_bonus = max_mp_bonus
 
         self.slot = slot
         self.is_equipped = False
@@ -320,6 +346,14 @@ class Equipment:
         if not self.is_equipped: return
         self.is_equipped = False
         message('Dequipped ' + self.owner.name+ ' from ' + self.slot + '.', libtcod.light_yellow)
+
+class BasicNPC:
+    #AI for a basic npc.
+    def take_turn(self):
+        #a basic npc takes its turn, it wanders toward the player, if the player can see it.
+        npc = self.owner
+        if libtcod.map_is_in_fov(fov_map, npc.x, npc.y):
+            npc.move_towards(player.x, player.y)
  
 def is_blocked(x, y):
     #first test the map tile
@@ -359,7 +393,7 @@ def make_map():
     global map, objects, num_rooms, stairs
  
     #the list of objects with just the player
-    objects = [player]
+    objects = [player, npc]
  
     #fill map with "blocked" tiles
     map = [[ Tile(True)
@@ -479,6 +513,7 @@ def place_objects(room):
     #chances of each item (by default they have a chance of 0 at level 1, which then goes up)
     item_chances = {}
     item_chances['heal'] = 35 #healing potions always show up, even if all other items have 0 chance
+    item_chances['manabuff'] = 35
     item_chances['lightning'] = from_dungeon_level([[25, 4]])
     item_chances['fireball'] = from_dungeon_level([[25, 6]])
     item_chances['confuse'] = from_dungeon_level([[10, 2]])
@@ -495,19 +530,19 @@ def place_objects(room):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
  
-        #only place it if the tile is not blocked
+        #only place it if the tile is not blocked, and it's not in the first room.
         if not is_blocked(x, y) and num_rooms != 0:
             choice = random_choice(monster_chances)
             if choice  == 'orc':
                 #create an orc
-                fighter_component = Fighter(hp=20, defense=0, power=4, xp=35, death_function=monster_death)
+                fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
                 ai_component = BasicMonster()
  
                 monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
                     blocks=True, fighter=fighter_component, ai=ai_component)
             elif choice == 'troll':
                 #create a troll
-                fighter_component = Fighter(hp=30, defense=2, power=8, xp=100, death_function=monster_death)
+                fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
                 ai_component = BasicMonster()
  
                 monster = Object(x, y, 'T', 'troll', libtcod.darker_green,
@@ -523,13 +558,18 @@ def place_objects(room):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
  
-        #only place it if the tile is not blocked
-        if not is_blocked(x, y):
+        #only place it if the tile is not blocked, and it's not in the first room
+        if not is_blocked(x, y) and num_rooms != 0:
             choice = random_choice(item_chances)
             if choice == 'heal':
                 #create a healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
+
+            elif choice =='manabuff':
+                #create a manapotion
+                item_component = Item(use_function=cast_mana)
+                item = Object(x, y, '!', 'mana potion', libtcod.azure, item=item_component)
 
             elif choice =='lightning':
                 #create a lightning bolt scroll
@@ -558,7 +598,7 @@ def place_objects(room):
 
             elif choice == 'helmet':
                 #create a helmet
-                equipment_component = Equipment(slot='head', defense_bonus=1)
+                equipment_component = Equipment(slot='head', hp_bonus=1)
                 item = Object(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
  
             objects.append(item)
@@ -650,10 +690,13 @@ def render_all():
         y += 1
  
     #show the player's stats
-    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
+    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.base_max_hp,
         libtcod.light_red, libtcod.darker_red)
 
-    libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT, 'Dungeon level ' + str(dungeon_level))
+    render_bar(1, 2, BAR_WIDTH, 'MP', player.fighter.mp, player.fighter.base_max_mp,
+        libtcod.light_blue, libtcod.darker_blue)
+
+    libtcod.console_print_ex(panel, 1, 4, libtcod.BKGND_NONE, libtcod.LEFT, 'Dungeon level ' + str(dungeon_level))
  
     #display names of objects under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
@@ -857,12 +900,12 @@ def check_level_up():
                 'Strength (+1 attack, from ' + str(player.fighter.base_power) + ')',
                 'Agility (+1 defence, from ' + str(player.fighter.base_defense) + ')'], LEVEL_SCREEN_WIDTH)
         if choice == 0:
-            player.fighter.max_hp += 20
+            player.fighter.base_max_hp += 20
             player.fighter.hp += 20
         elif choice == 1:
-            player.fighter.power += 1
+            player.fighter.base_power += 1
         elif choice == 2:
-            player.fighter.defense += 1
+            player.fighter.base_defense += 1
 
 def player_death(player):
     #the game ended!
@@ -873,11 +916,14 @@ def player_death(player):
     #for added effect, transform the player into a corpse!
     player.char = '%'
     player.color = libtcod.dark_red
- 
+
+def player_manaless(player):
+    player.color = libtcod.lightest_grey
+
 def monster_death(monster):
     #transform it into a nasty corpse! it doesn't block, can't be
     #attacked and doesn't move
-    message('The ' + monster.name.capitalize() + ' is dead! You gain ' + str(monster.fighter.xp) + 'experience points.', libtcod.orange)
+    message('The ' + monster.name.capitalize() + ' is dead! You gain ' + str(monster.fighter.xp) + ' experience points.', libtcod.orange)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
@@ -935,10 +981,20 @@ def cast_heal():
     if player.fighter.hp == player.fighter.max_hp:
         message('You are already at full health.', libtcod.red)
         return 'cancelled'
- 
+
     message('Your wounds start to feel better!', libtcod.light_violet)
     player.fighter.heal(HEAL_AMOUNT)
+    player.fighter.manadecrease(1)
+
+def cast_mana():
+    #restore the player's mana
+    if player.fighter.mp == player.fighter.max_mp:
+        message('You are already at full mana.', libtcod.red)
+        return 'cancelled'
  
+    message('Your magic feels a bit refreshed!', libtcod.light_violet)
+    player.fighter.manabuff(MANABUFF_AMOUNT)
+
 def cast_lightning():
     #find closest enemy (inside a maximum range) and damage it
     monster = closest_monster(LIGHTNING_RANGE)
@@ -950,6 +1006,7 @@ def cast_lightning():
     message('A lighting bolt strikes the ' + monster.name + ' with a loud thunder! The damage is '
         + str(LIGHTNING_DAMAGE) + ' hit points.', libtcod.light_blue)
     monster.fighter.take_damage(LIGHTNING_DAMAGE)
+    player.fighter.manadecrease(3)
  
 def cast_fireball():
     #ask the player for a target tile to throw a fireball at
@@ -962,6 +1019,7 @@ def cast_fireball():
         if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
             message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', libtcod.orange)
             obj.fighter.take_damage(FIREBALL_DAMAGE)
+    player.fighter.manadecrease(5)
  
 def cast_confuse():
     #ask the player for a target to confuse
@@ -974,6 +1032,7 @@ def cast_confuse():
     monster.ai = ConfusedMonster(old_ai)
     monster.ai.owner = monster  #tell the new component who owns it
     message('The eyes of the ' + monster.name + ' look vacant, as he starts to stumble around!', libtcod.light_green)
+    player.fighter.manadecrease(8)
  
 def save_game():
     #open a new empty shelve (possibly overwriting an old one) to write the game data
@@ -1006,11 +1065,13 @@ def load_game():
     initialize_fov()
  
 def new_game():
-    global player, inventory, game_msgs, game_state, dungeon_level
+    global player, inventory, game_msgs, game_state, dungeon_level, npc
  
     #create object representing the player
-    fighter_component = Fighter(hp=30, defense=2, power=2, xp=0, death_function=player_death)
+    fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
     player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
+    npc = Object(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
+    ai_component = BasicNPC()
 
     #initialise player level
     player.level = 1
@@ -1114,7 +1175,7 @@ def main_menu():
         elif choice == 2:  #quit
             break
  
-libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
+libtcod.console_set_custom_font('arial12x12.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'roguelike', False)
 libtcod.sys_set_fps(LIMIT_FPS)
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)

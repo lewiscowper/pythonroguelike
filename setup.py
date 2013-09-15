@@ -12,7 +12,7 @@ target_file = 'roguelike.py'
 assets_dir = '.\\'
  
 # Filetypes not to be included in the above.
-excluded_file_types = ['py','pyc','project','pydevproject']
+excluded_file_types = ['py','pyc','project','pydevproject','sublime-project','sublime-workspace','gitignore','/git']
  
 def get_data_files(base_dir, target_dir, list=[]):
     """
