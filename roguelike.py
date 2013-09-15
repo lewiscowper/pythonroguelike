@@ -483,8 +483,9 @@ def place_objects(room):
     item_chances['fireball'] = from_dungeon_level([[25, 6]])
     item_chances['confuse'] = from_dungeon_level([[10, 2]])
 
-    item_chances['sword'] = from_dungeon_level([[5, 4]])
-    item_chances['shield'] = from_dungeon_level([[15, 8]])
+    item_chances['sword'] = from_dungeon_level([[5, 3]])
+    item_chances['shield'] = from_dungeon_level([[15, 5]])
+    item_chances['helmet'] = from_dungeon_level([[15, 7]])
 
     #choose random number of monsters
     num_monsters = libtcod.random_get_int(0, 0, max_monsters)
@@ -554,6 +555,11 @@ def place_objects(room):
                 #create a shield
                 equipment_component = Equipment(slot='left hand', defense_bonus=1)
                 item = Object(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
+
+            elif choice == 'helmet':
+                #create a helmet
+                equipment_component = Equipment(slot='head', defense_bonus=1)
+                item = Object(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
  
             objects.append(item)
             item.send_to_back()  #items appear below other objects
@@ -1059,7 +1065,8 @@ def play_game():
         libtcod.console_flush()
 
         #check for levelling up
-        check_level_up()
+        if game_state == 'playing':
+            check_level_up()
  
         #erase all objects at their old locations, before they move
         for object in objects:
