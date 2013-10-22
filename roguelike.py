@@ -393,7 +393,7 @@ def make_map():
     global map, objects, num_rooms, stairs
  
     #the list of objects with just the player
-    objects = [player, npc]
+    objects = [player]
  
     #fill map with "blocked" tiles
     map = [[ Tile(True)
@@ -1070,7 +1070,7 @@ def new_game():
     #create object representing the player
     fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
     player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
-    npc = Object(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
+#   npc = Object(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
     ai_component = BasicNPC()
 
     #initialise player level
