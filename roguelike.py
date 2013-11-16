@@ -964,17 +964,12 @@ def target_monster(max_range=None):
 
 def closest_monster(max_range):
     # find closest enemy, up to a maximum range, and in the player's FOV
-    closest_enemy = None
-    closest_dist = max_range + 1  # start with (slightly more than) maximum range
-
-    for object in objects:
-        if object.fighter and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
-            # calculate distance between this object and the player
-            dist = player.distance_to(object)
-            if dist < closest_dist:  # it's closer, so remember it
-                closest_enemy = object
-                closest_dist = dist
-    return closest_enemy
+    fighters = ((player.distance_to(o), o) for o in objects if o.fighter and not o == player)
+    visible_fighters = ((d, o) for d, o in fighters if d <= max_range if libtcod.map_is_in_fov(fov_map, o.x, o.y))
+    if visible_fighters:
+        return min(visible_fighters)[1]
+    else:
+        return None
 
 def cast_heal():
     # heal the player
