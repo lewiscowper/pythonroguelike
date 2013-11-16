@@ -146,7 +146,6 @@ class GameObject(object):
 
     def send_to_back(self):
         # make this object be drawn first, so all others appear above it if they're in the same tile.
-        global objects
         objects.remove(self)
         objects.insert(0, self)
 
@@ -368,7 +367,6 @@ def is_blocked(x, y):
     return False
 
 def create_room(room):
-    global level_map
     # go through the tiles in the rectangle and make them passable
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
@@ -376,14 +374,12 @@ def create_room(room):
             level_map[x][y].block_sight = False
 
 def create_h_tunnel(x1, x2, y):
-    global level_map
     # horizontal tunnel. min() and max() are used in case x1>x2
     for x in range(min(x1, x2), max(x1, x2) + 1):
         level_map[x][y].blocked = False
         level_map[x][y].block_sight = False
 
 def create_v_tunnel(y1, y2, x):
-    global level_map
     # vertical tunnel
     for y in range(min(y1, y2), max(y1, y2) + 1):
         level_map[x][y].blocked = False
@@ -624,8 +620,6 @@ def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
         name + ': ' + str(value) + '/' + str(maximum))
 
 def get_names_under_mouse():
-    global mouse
-
     # return a string with the names of all objects under the mouse
     (x, y) = (mouse.cx, mouse.cy)
 
@@ -813,8 +807,6 @@ def msgbox(text, width=50):
     menu(text, [], width)  # use menu() as a sort of "message box"
 
 def handle_keys():
-    global key;
-
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: toggle fullscreen
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
@@ -934,7 +926,6 @@ def monster_death(monster):
 
 def target_tile(max_range=None):
     # return the position of a tile left-clicked in player's FOV (optionally in a range), or (None,None) if right-clicked.
-    global key, mouse
     while True:
         # render the screen. this erases the inventory and shows the names of objects under the mouse.
         libtcod.console_flush()
