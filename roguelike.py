@@ -56,7 +56,7 @@ color_dark_ground = libtcod.Color(50, 50, 150)
 color_light_ground = libtcod.Color(200, 180, 50)
 
 
-class Tile:
+class Tile(object):
     # a tile of the map and its properties
     def __init__(self, blocked, block_sight = None):
         self.blocked = blocked
@@ -68,7 +68,7 @@ class Tile:
         if block_sight is None: block_sight = blocked
         self.block_sight = block_sight
 
-class Rect:
+class Rect(object):
     # a rectangle on the map. used to characterize a room.
     def __init__(self, x, y, w, h):
         self.x1 = x
@@ -86,7 +86,7 @@ class Rect:
         return (self.x1 <= other.x2 and self.x2 >= other.x1 and
                 self.y1 <= other.y2 and self.y2 >= other.y1)
 
-class Object:
+class Object(object):
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
     def __init__(self, x, y, char, name, color, blocks=False, always_visible=False, fighter=None, ai=None, item=None, equipment=None):
@@ -162,7 +162,7 @@ class Object:
         # erase the character that represents this object
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
-class Fighter:
+class Fighter(object):
     # combat-related properties and methods (monster, player, NPC).
     def __init__(self, hp, mp, defense, power, xp, death_function=None, manaless_function=None):
         self.base_max_hp = hp
@@ -241,7 +241,7 @@ class Fighter:
                 function(self.owner)
             self.mp = 0
 
-class BasicMonster:
+class BasicMonster(object):
     # AI for a basic monster.
     def take_turn(self):
         # a basic monster takes its turn. if you can see it, it can see you
@@ -256,7 +256,7 @@ class BasicMonster:
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
 
-class ConfusedMonster:
+class ConfusedMonster(object):
     # AI for a temporarily confused monster (reverts to previous AI after a while).
     def __init__(self, old_ai, num_turns=CONFUSE_NUM_TURNS):
         self.old_ai = old_ai
@@ -272,7 +272,7 @@ class ConfusedMonster:
             self.owner.ai = self.old_ai
             message('The ' + self.owner.name + ' is no longer confused!', libtcod.red)
 
-class Item:
+class Item(object):
     # an item that can be picked up and used.
     def __init__(self, use_function=None):
         self.use_function = use_function
@@ -314,7 +314,7 @@ class Item:
             if self.use_function() != 'cancelled':
                 inventory.remove(self.owner)  # destroy after use, unless it was cancelled for some reason
 
-class Equipment:
+class Equipment(object):
     # an object that can be equipped, yielding bonuses. Automatically adds the Item component.
     def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0, max_mp_bonus=0):
         self.power_bonus = power_bonus
@@ -347,7 +347,7 @@ class Equipment:
         self.is_equipped = False
         message('Dequipped ' + self.owner.name+ ' from ' + self.slot + '.', libtcod.light_yellow)
 
-class BasicNPC:
+class BasicNPC(object):
     # AI for a basic npc.
     def take_turn(self):
         # a basic npc takes its turn, it wanders toward the player, if the player can see it.
