@@ -86,7 +86,7 @@ class Rect(object):
         return (self.x1 <= other.x2 and self.x2 >= other.x1 and
                 self.y1 <= other.y2 and self.y2 >= other.y1)
 
-class Object(object):
+class GameObject(object):
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
     def __init__(self, x, y, char, name, color, blocks=False, always_visible=False, fighter=None, ai=None, item=None, equipment=None):
@@ -153,7 +153,7 @@ class Object(object):
     def draw(self):
         # only show if it's visible to the player; or it's set to "always visible" and on an explored tile
         if (libtcod.map_is_in_fov(fov_map, self.x, self.y) or
-            (self.always_visible and map[self.x][self.y].explored)):
+            (self.always_visible and level_map[self.x][self.y].explored)):
             # set the color and then draw the character that represents this object at its position
             libtcod.console_set_default_foreground(con, self.color)
             libtcod.console_put_char(con, self.x, self.y, self.char, libtcod.BKGND_NONE)
@@ -357,7 +357,7 @@ class BasicNPC(object):
 
 def is_blocked(x, y):
     # first test the map tile
-    if map[x][y].blocked:
+    if level_map[x][y].blocked:
         return True
 
     # now check for any blocking objects
@@ -368,35 +368,35 @@ def is_blocked(x, y):
     return False
 
 def create_room(room):
-    global map
+    global level_map
     # go through the tiles in the rectangle and make them passable
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
-            map[x][y].blocked = False
-            map[x][y].block_sight = False
+            level_map[x][y].blocked = False
+            level_map[x][y].block_sight = False
 
 def create_h_tunnel(x1, x2, y):
-    global map
+    global level_map
     # horizontal tunnel. min() and max() are used in case x1>x2
     for x in range(min(x1, x2), max(x1, x2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        level_map[x][y].blocked = False
+        level_map[x][y].block_sight = False
 
 def create_v_tunnel(y1, y2, x):
-    global map
+    global level_map
     # vertical tunnel
     for y in range(min(y1, y2), max(y1, y2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        level_map[x][y].blocked = False
+        level_map[x][y].block_sight = False
 
 def make_map():
-    global map, objects, num_rooms, stairs
+    global level_map, objects, num_rooms, stairs
 
     # the list of objects with just the player
     objects = [player]
 
     # fill map with "blocked" tiles
-    map = [[ Tile(True)
+    level_map = [[ Tile(True)
         for y in range(MAP_HEIGHT) ]
             for x in range(MAP_WIDTH) ]
 
@@ -459,7 +459,7 @@ def make_map():
             num_rooms += 1
 
     # create stairs at the centre of the last room
-    stairs = Object(new_x, new_y, '<', 'stairs', libtcod.white, always_visible=True)
+    stairs = GameObject(new_x, new_y, '<', 'stairs', libtcod.white, always_visible=True)
     objects.append(stairs)
     stairs.send_to_back() # so it's drawn below the monsters
 
@@ -538,14 +538,14 @@ def place_objects(room):
                 fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
                 ai_component = BasicMonster()
 
-                monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
+                monster = GameObject(x, y, 'o', 'orc', libtcod.desaturated_green,
                     blocks=True, fighter=fighter_component, ai=ai_component)
             elif choice == 'troll':
                 # create a troll
                 fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
                 ai_component = BasicMonster()
 
-                monster = Object(x, y, 'T', 'troll', libtcod.darker_green,
+                monster = GameObject(x, y, 'T', 'troll', libtcod.darker_green,
                     blocks=True, fighter=fighter_component, ai=ai_component)
 
             objects.append(monster)
@@ -564,42 +564,42 @@ def place_objects(room):
             if choice == 'heal':
                 # create a healing potion
                 item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
+                item = GameObject(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
 
             elif choice =='manabuff':
                 # create a manapotion
                 item_component = Item(use_function=cast_mana)
-                item = Object(x, y, '!', 'mana potion', libtcod.azure, item=item_component)
+                item = GameObject(x, y, '!', 'mana potion', libtcod.azure, item=item_component)
 
             elif choice =='lightning':
                 # create a lightning bolt scroll
                 item_component = Item(use_function=cast_lightning)
-                item = Object(x, y, '# ', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
+                item = GameObject(x, y, '# ', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
 
             elif choice == 'fireball':
                 # create a fireball scroll
                 item_component = Item(use_function=cast_fireball)
-                item = Object(x, y, '# ', 'scroll of fireball', libtcod.light_yellow, item=item_component)
+                item = GameObject(x, y, '# ', 'scroll of fireball', libtcod.light_yellow, item=item_component)
 
             elif choice == 'confuse':
                 # create a confuse scroll
                 item_component = Item(use_function=cast_confuse)
-                item = Object(x, y, '# ', 'scroll of confusion', libtcod.light_yellow, item=item_component)
+                item = GameObject(x, y, '# ', 'scroll of confusion', libtcod.light_yellow, item=item_component)
 
             elif choice == 'sword':
                 # create a sword
                 equipment_component = Equipment(slot='right hand', power_bonus=3)
-                item = Object(x, y, '/', 'sword', libtcod.sky, equipment=equipment_component)
+                item = GameObject(x, y, '/', 'sword', libtcod.sky, equipment=equipment_component)
 
             elif choice == 'shield':
                 # create a shield
                 equipment_component = Equipment(slot='left hand', defense_bonus=1)
-                item = Object(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
+                item = GameObject(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
 
             elif choice == 'helmet':
                 # create a helmet
                 equipment_component = Equipment(slot='head', hp_bonus=1)
-                item = Object(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
+                item = GameObject(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
 
             objects.append(item)
             item.send_to_back()  # items appear below other objects
@@ -650,10 +650,10 @@ def render_all():
         for y in range(MAP_HEIGHT):
             for x in range(MAP_WIDTH):
                 visible = libtcod.map_is_in_fov(fov_map, x, y)
-                wall = map[x][y].block_sight
+                wall = level_map[x][y].block_sight
                 if not visible:
                     # if it's not visible right now, the player can only see it if it's explored
-                    if map[x][y].explored:
+                    if level_map[x][y].explored:
                         if wall:
                             libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET)
                         else:
@@ -665,7 +665,7 @@ def render_all():
                     else:
                         libtcod.console_set_char_background(con, x, y, color_light_ground, libtcod.BKGND_SET )
                     # since it's visible, explore it
-                    map[x][y].explored = True
+                    level_map[x][y].explored = True
 
     # draw all objects in the list, except the player. we want it to
     # always appear over all other objects! so it's drawn later.
@@ -1037,7 +1037,7 @@ def cast_confuse():
 def save_game():
     # open a new empty shelve (possibly overwriting an old one) to write the game data
     file = shelve.open('savegame', 'n')
-    file['map'] = map
+    file['map'] = level_map
     file['objects'] = objects
     file['player_index'] = objects.index(player)  # index of player in objects list
     file['stairs_index'] = objects.index(stairs)
@@ -1049,10 +1049,10 @@ def save_game():
 
 def load_game():
     # open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state, dungeon_level
+    global level_map, objects, player, inventory, game_msgs, game_state, dungeon_level
 
     file = shelve.open('savegame', 'r')
-    map = file['map']
+    level_map = file['map']
     objects = file['objects']
     player = objects[file['player_index']]  # get index of player in objects list and access it
     stairs = objects[file['stairs_index']]
@@ -1069,8 +1069,8 @@ def new_game():
 
     # create object representing the player
     fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
-    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
-#    npc = Object(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
+    player = GameObject(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
+#    npc = GameObject(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
     ai_component = BasicNPC()
 
     # initialise player level
@@ -1094,7 +1094,7 @@ def new_game():
 
     # initial equipment: a dagger
     equipment_component = Equipment(slot='right hand', power_bonus=2)
-    obj = Object(0,0, '-', 'dagger', libtcod.sky, equipment=equipment_component)
+    obj = GameObject(0,0, '-', 'dagger', libtcod.sky, equipment=equipment_component)
     inventory.append(obj)
     equipment_component.equip()
     obj.always_visible = True
@@ -1107,7 +1107,7 @@ def initialize_fov():
     fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
     for y in range(MAP_HEIGHT):
         for x in range(MAP_WIDTH):
-            libtcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+            libtcod.map_set_properties(fov_map, x, y, not level_map[x][y].block_sight, not level_map[x][y].blocked)
 
     libtcod.console_clear(con)  # unexplored areas start black (which is the default background color)
 
