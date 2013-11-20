@@ -1,7 +1,3 @@
-import libtcodpy as libtcod
-from constants import *
-
-
 class Tile(object):
     # a tile of the map and its properties
     def __init__(self, blocked, block_sight = None):
