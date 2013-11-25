@@ -2,9 +2,9 @@ import libtcodpy as libtcod
 import math
 import shelve
 from constants import *
-from levelmap import *
-from statics import *
-from dynamics import *
+from levelmap import Tile, Rect, create_room, create_h_tunnel, create_v_tunnel
+from statics import Item, Equipment, make_item
+from dynamics import Fighter, player_death, player_manaless, get_all_equipped, build_monster
 from messages import Messaging
 
 
@@ -85,22 +85,12 @@ class GameObject(object):
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 def is_blocked(x, y):
-    # first test the map tile
-    if level_map[x][y].blocked:
-        return True
-
-    # now check for any blocking objects
-    for object in objects:
-        if object.blocks and object.x == x and object.y == y:
-            return True
-
-    return False
+    return level_map[x][y].blocked or any(o.blocks for o in objects if (o.x, o.y) == (x, y))
 
 
 def make_map():
     global level_map, objects, stairs
 
-    # the list of objects with just the player
     objects = [player]
 
     # fill map with "blocked" tiles
@@ -109,7 +99,6 @@ def make_map():
             for x in range(MAP_WIDTH) ]
 
     rooms = []
-    num_rooms = 0
 
     for r in range(MAX_ROOMS):
         # random width and height
@@ -118,53 +107,29 @@ def make_map():
         # random position without going out of the boundaries of the map
         x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
         y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
-
-        # "Rect" class makes rectangles easier to work with
         new_room = Rect(x, y, w, h)
 
-        # run through the other rooms and see if they intersect with this one
-        failed = False
-        for other_room in rooms:
-            if new_room.intersect(other_room):
-                failed = True
-                break
-
-        if not failed:
+        if not any(new_room.intersect(other_room) for other_room in rooms):
             # this means there are no intersections, so this room is valid
-
             # "paint" it to the map's tiles
             create_room(level_map, new_room)
-
-            # add some contents to this room, such as monsters
-            place_objects(new_room, num_rooms)
-
             # center coordinates of new room, will be useful later
             (new_x, new_y) = new_room.center()
-
-            if num_rooms == 0:
+            if not rooms:
                 # this is the first room, where the player starts at
                 player.x = new_x
                 player.y = new_y
             else:
-                # all rooms after the first:
+                place_objects(new_room)
                 # connect it to the previous room with a tunnel
-
-                # center coordinates of previous room
-                (prev_x, prev_y) = rooms[num_rooms-1].center()
-
-                # draw a coin (random number that is either 0 or 1)
+                prev_x, prev_y = rooms[-1].center()
                 if libtcod.random_get_int(0, 0, 1) == 1:
-                    # first move horizontally, then vertically
                     create_h_tunnel(level_map, prev_x, new_x, prev_y)
                     create_v_tunnel(level_map, prev_y, new_y, new_x)
                 else:
-                    # first move vertically, then horizontally
                     create_v_tunnel(level_map, prev_y, new_y, prev_x)
                     create_h_tunnel(level_map, prev_x, new_x, new_y)
-
-            # finally, append the new room to the list
             rooms.append(new_room)
-            num_rooms += 1
 
     # create stairs at the centre of the last room
     stairs = GameObject(new_x, new_y, '<', 'stairs', libtcod.white, always_visible=True)
@@ -200,7 +165,7 @@ def from_dungeon_level(table):
             return value
     return 0
 
-def place_objects(room, num_rooms):
+def place_objects(room):
     # maximum numberof monsters per room
     max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
 
@@ -233,23 +198,10 @@ def place_objects(room, num_rooms):
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         # only place it if the tile is not blocked, and it's not in the first room.
-        if not is_blocked(x, y) and num_rooms != 0:
+        if not is_blocked(x, y):
             choice = random_choice(monster_chances)
-            if choice  == 'orc':
-                # create an orc
-                fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
-                ai_component = BasicMonster()
-
-                monster = GameObject(x, y, 'o', 'orc', libtcod.desaturated_green,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
-            elif choice == 'troll':
-                # create a troll
-                fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
-                ai_component = BasicMonster()
-
-                monster = GameObject(x, y, 'T', 'troll', libtcod.darker_green,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
-
+            symbol, colour, fighter_component, ai_component = build_monster(choice)
+            monster = GameObject(x, y, symbol, choice, colour, blocks=True, fighter=fighter_component, ai=ai_component)
             objects.append(monster)
 
     # choose random number of items
@@ -261,48 +213,10 @@ def place_objects(room, num_rooms):
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         # only place it if the tile is not blocked, and it's not in the first room
-        if not is_blocked(x, y) and num_rooms != 0:
+        if not is_blocked(x, y):
             choice = random_choice(item_chances)
-            if choice == 'heal':
-                # create a healing potion
-                item_component = Item(use_function=cast_heal)
-                item = GameObject(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
-
-            elif choice =='manabuff':
-                # create a manapotion
-                item_component = Item(use_function=cast_mana)
-                item = GameObject(x, y, '!', 'mana potion', libtcod.azure, item=item_component)
-
-            elif choice =='lightning':
-                # create a lightning bolt scroll
-                item_component = Item(use_function=cast_lightning)
-                item = GameObject(x, y, '#', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'fireball':
-                # create a fireball scroll
-                item_component = Item(use_function=cast_fireball)
-                item = GameObject(x, y, '#', 'scroll of fireball', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'confuse':
-                # create a confuse scroll
-                item_component = Item(use_function=cast_confuse)
-                item = GameObject(x, y, '#', 'scroll of confusion', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'sword':
-                # create a sword
-                equipment_component = Equipment(slot='right hand', power_bonus=3)
-                item = GameObject(x, y, '/', 'sword', libtcod.sky, equipment=equipment_component)
-
-            elif choice == 'shield':
-                # create a shield
-                equipment_component = Equipment(slot='left hand', defense_bonus=1)
-                item = GameObject(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
-
-            elif choice == 'helmet':
-                # create a helmet
-                equipment_component = Equipment(slot='head', hp_bonus=1)
-                item = GameObject(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
-
+            symbol, name, colour, item_component, equipment_component = make_item(choice)
+            item = GameObject(x, y, symbol,name, colour, item=item_component, equipment=equipment_component)
             objects.append(item)
             item.send_to_back()  # items appear below other objects
             item.always_visible = True # items are always visible even out of FOV, if in an explored area
@@ -337,8 +251,6 @@ def get_names_under_mouse():
     return names.capitalize()
 
 def render_all():
-    global fov_map, color_dark_wall, color_light_wall
-    global color_dark_ground, color_light_ground
     global fov_recompute
 
     if fov_recompute:
@@ -617,28 +529,17 @@ def load_game():
 def new_game():
     global player, game_msgs, game_state, dungeon_level, npc
 
-    # create object representing the player
     fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
     player = GameObject(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
+#    ai_component = BasicNPC()
 #    npc = GameObject(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
-    ai_component = BasicNPC()
 
-    # initialise player level
     player.level = 1
-
-    # initialise dungeon level
     dungeon_level = 1
-
-    # generate map (at this point it's not drawn to the screen)
     make_map()
     initialize_fov()
-
     game_state = 'playing'
-
-    # create the list of game messages and their colors, starts empty
     game_msgs = Messaging()
-
-    # a warm welcoming message!
     game_msgs('Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.', libtcod.red)
 
     # initial equipment: a dagger
@@ -667,15 +568,15 @@ def target_tile(max_range=None):
         libtcod.console_flush()
         libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE,key,mouse)
         render_all()
-        (x, y) = (mouse.cx, mouse.cy)
+        x, y = mouse.cx, mouse.cy
 
         if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
-            return (None, None)  # cancel if the player right-clicked or pressed Escape
+            return None, None  # cancel if the player right-clicked or pressed Escape
 
         # accept the target if the player clicked in FOV, and in case a range is specified, if it's in that range
         if (mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y) and
             (max_range is None or player.distance(x, y) <= max_range)):
-            return (x, y)
+            return x, y
 
 def target_monster(max_range=None):
     # returns a clicked monster inside FOV up to a range, or None if right-clicked
@@ -692,7 +593,7 @@ def target_monster(max_range=None):
 def closest_monster(max_range):
     # find closest enemy, up to a maximum range, and in the player's FOV
     fighters = ((player.distance_to(o), o) for o in objects if o.fighter and not o == player)
-    visible_fighters = ((d, o) for d, o in fighters if d <= max_range if libtcod.map_is_in_fov(fov_map, o.x, o.y))
+    visible_fighters = [(d, o) for d, o in fighters if d <= max_range if libtcod.map_is_in_fov(fov_map, o.x, o.y)]
     if visible_fighters:
         return min(visible_fighters)[1]
     else:
@@ -752,13 +653,13 @@ def main_menu():
         if choice == 0:  # new game
             new_game()
             play_game()
-        if choice == 1:  # load last game
+        elif choice == 1:  # load last game
             try:
                 load_game()
             except:
                 msgbox('\n No saved game to load.\n', 24)
-                continue
-            play_game()
+            else:
+                play_game()
         elif choice == 2:  # quit
             break
 

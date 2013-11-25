@@ -2,6 +2,10 @@ import libtcodpy as libtcod
 from constants import CONFUSE_NUM_TURNS
 
 
+def do_nothing(*args, **kwargs):
+    pass
+
+
 class Fighter(object):
     # combat-related properties and methods (monster, player, NPC).
     def __init__(self, hp, mp, defense, power, xp, death_function=None, manaless_function=None):
@@ -12,28 +16,24 @@ class Fighter(object):
         self.base_defense = defense
         self.base_power = power
         self.xp = xp
-        self.death_function = death_function
-        self.manaless_function = manaless_function
+        self.death_function = death_function or do_nothing
+        self.manaless_function = manaless_function or do_nothing
 
     @property
     def power(self): # return actual power, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_power + bonus
+        return self.base_power + sum(e.power_bonus for e in get_all_equipped(self.owner))
 
     @property
     def defense(self): # return actual defence, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.defense_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_defense + bonus
+        return self.base_defense + sum(e.defense_bonus for e in get_all_equipped(self.owner))
 
     @property
     def max_hp(self): # return actual max_hp, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_max_hp + bonus
+        return self.base_max_hp + sum(e.max_hp_bonus for e in get_all_equipped(self.owner))
 
     @property
     def max_mp(self): # return actual max_hp, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.max_mp_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_max_mp + bonus
+        return self.base_max_mp + sum(e.max_mp_bonus for e in get_all_equipped(self.owner))
 
     def attack(self, target, message, player):
         # a simple formula for attack damage
@@ -54,33 +54,23 @@ class Fighter(object):
 
             # check for death. if there's a death function, call it
             if self.hp <= 0:
-                function = self.death_function
-                if function is not None:
-                    return function(self.owner, message)
+                return self.death_function(self.owner, message)
             if self.owner != player: # yield experience to the player
                 player.fighter.xp += self.xp
 
     def heal(self, amount):
         # heal by the given amount, without going over the maximum
-        self.hp += amount
-        if self.hp > self.max_hp:
-            self.hp = self.max_hp
+        self.hp = min(self.hp+amount, self.max_hp)
 
     def manabuff(self, amount):
         # heal by the given amount, without going over the maximum
-        self.mp += amount
-        if self.mp > self.max_mp:
-            self.mp = self.max_mp
+        self.mp = min(self.mp+amount, self.max_mp)
 
     def manadecrease(self, mana):
         # decrease mana by the given amount
-        self.mp -= mana
-        
-        if self.mp <= 0:
-            function = self.manaless_function
-            if function is not None:
-                function(self.owner)
-            self.mp = 0
+        self.mp = max(0, self.mp-mana)
+        if self.mp == 0:
+            self.manaless_function(self.owner)
 
 class BasicMonster(object):
     # AI for a basic monster.
@@ -147,8 +137,12 @@ def player_manaless(player):
     player.color = libtcod.lightest_grey
 
 def get_all_equipped(obj): # returns a list of equipped items
-    equipped_list = []
-    for item in obj.inventory:
-        if item.equipment and item.equipment.is_equipped:
-            equipped_list.append(item.equipment)
-    return equipped_list
+    return [item.equipment for item in obj.inventory if item.equipment and item.equipment.is_equipped]
+
+def build_monster(choice):
+    if choice  == 'orc': # create an orc
+        fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
+        return ('o', libtcod.desaturated_green, fighter_component, BasicMonster())
+    elif choice == 'troll': # create a troll
+        fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
+        return ('T', libtcod.darker_green, fighter_component, BasicMonster())
