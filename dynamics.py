@@ -60,22 +60,17 @@ class Fighter(object):
 
     def heal(self, amount):
         # heal by the given amount, without going over the maximum
-        self.hp += amount
-        if self.hp > self.max_hp:
-            self.hp = self.max_hp
+        self.hp = min(self.hp+amount, self.max_hp)
 
     def manabuff(self, amount):
         # heal by the given amount, without going over the maximum
-        self.mp += amount
-        if self.mp > self.max_mp:
-            self.mp = self.max_mp
+        self.mp = min(self.mp+amount, self.max_mp)
 
     def manadecrease(self, mana):
         # decrease mana by the given amount
-        self.mp -= mana
-        if self.mp <= 0:
+        self.mp = max(0, self.mp-mana)
+        if self.mp == 0:
             self.manaless_function(self.owner)
-            self.mp = 0
 
 class BasicMonster(object):
     # AI for a basic monster.
