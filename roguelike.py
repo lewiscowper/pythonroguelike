@@ -100,7 +100,6 @@ def is_blocked(x, y):
 def make_map():
     global level_map, objects, stairs
 
-    # the list of objects with just the player
     objects = [player]
 
     # fill map with "blocked" tiles
@@ -118,8 +117,6 @@ def make_map():
         # random position without going out of the boundaries of the map
         x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
         y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
-
-        # "Rect" class makes rectangles easier to work with
         new_room = Rect(x, y, w, h)
 
         # run through the other rooms and see if they intersect with this one
@@ -154,15 +151,11 @@ def make_map():
 
                 # draw a coin (random number that is either 0 or 1)
                 if libtcod.random_get_int(0, 0, 1) == 1:
-                    # first move horizontally, then vertically
                     create_h_tunnel(level_map, prev_x, new_x, prev_y)
                     create_v_tunnel(level_map, prev_y, new_y, new_x)
                 else:
-                    # first move vertically, then horizontally
                     create_v_tunnel(level_map, prev_y, new_y, prev_x)
                     create_h_tunnel(level_map, prev_x, new_x, new_y)
-
-            # finally, append the new room to the list
             rooms.append(new_room)
             num_rooms += 1
 
@@ -617,28 +610,18 @@ def load_game():
 def new_game():
     global player, game_msgs, game_state, dungeon_level, npc
 
-    # create object representing the player
     fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
     player = GameObject(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
 #    npc = GameObject(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
     ai_component = BasicNPC()
 
-    # initialise player level
     player.level = 1
-
-    # initialise dungeon level
     dungeon_level = 1
-
-    # generate map (at this point it's not drawn to the screen)
     make_map()
     initialize_fov()
 
     game_state = 'playing'
-
-    # create the list of game messages and their colors, starts empty
     game_msgs = Messaging()
-
-    # a warm welcoming message!
     game_msgs('Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.', libtcod.red)
 
     # initial equipment: a dagger
@@ -667,15 +650,15 @@ def target_tile(max_range=None):
         libtcod.console_flush()
         libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE,key,mouse)
         render_all()
-        (x, y) = (mouse.cx, mouse.cy)
+        x, y = mouse.cx, mouse.cy
 
         if mouse.rbutton_pressed or key.vk == libtcod.KEY_ESCAPE:
-            return (None, None)  # cancel if the player right-clicked or pressed Escape
+            return None, None  # cancel if the player right-clicked or pressed Escape
 
         # accept the target if the player clicked in FOV, and in case a range is specified, if it's in that range
         if (mouse.lbutton_pressed and libtcod.map_is_in_fov(fov_map, x, y) and
             (max_range is None or player.distance(x, y) <= max_range)):
-            return (x, y)
+            return x, y
 
 def target_monster(max_range=None):
     # returns a clicked monster inside FOV up to a range, or None if right-clicked
