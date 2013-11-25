@@ -109,16 +109,8 @@ def make_map():
         y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
         new_room = Rect(x, y, w, h)
 
-        # run through the other rooms and see if they intersect with this one
-        failed = False
-        for other_room in rooms:
-            if new_room.intersect(other_room):
-                failed = True
-                break
-
-        if not failed:
+        if not any(new_room.intersect(other_room) for other_room in rooms):
             # this means there are no intersections, so this room is valid
-
             # "paint" it to the map's tiles
             create_room(level_map, new_room)
             # center coordinates of new room, will be useful later
