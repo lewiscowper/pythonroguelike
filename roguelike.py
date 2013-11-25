@@ -85,7 +85,7 @@ class GameObject(object):
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 def is_blocked(x, y):
-    return level_map[x][y].blocked or any(o.blocks for o in objects if (o.x, oy) == (x, y))
+    return level_map[x][y].blocked or any(o.blocks for o in objects if (o.x, o.y) == (x, y))
 
 
 def make_map():
