@@ -2,7 +2,7 @@ import libtcodpy as libtcod
 import math
 import shelve
 from constants import *
-from levelmap import *
+from levelmap import Tile, Rect, create_room, create_h_tunnel, create_v_tunnel
 from statics import Item, Equipment, make_item
 from dynamics import Fighter, player_death, player_manaless, get_all_equipped, build_monster
 from messages import Messaging
