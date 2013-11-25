@@ -601,14 +601,13 @@ def new_game():
 
     fighter_component = Fighter(hp=30, mp=30, defense=2, power=2, xp=0, death_function=player_death, manaless_function=player_manaless)
     player = GameObject(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
+#    ai_component = BasicNPC()
 #    npc = GameObject(player.x, player.y-2, '@', 'npc', libtcod.dark_red, blocks=True, ai=ai_component)
-    ai_component = BasicNPC()
 
     player.level = 1
     dungeon_level = 1
     make_map()
     initialize_fov()
-
     game_state = 'playing'
     game_msgs = Messaging()
     game_msgs('Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.', libtcod.red)
