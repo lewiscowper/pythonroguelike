@@ -21,23 +21,19 @@ class Fighter(object):
 
     @property
     def power(self): # return actual power, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_power + bonus
+        return self.base_power + sum(e.power_bonus for e in get_all_equipped(self.owner))
 
     @property
     def defense(self): # return actual defence, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.defense_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_defense + bonus
+        return self.base_defense + sum(e.defense_bonus for e in get_all_equipped(self.owner))
 
     @property
     def max_hp(self): # return actual max_hp, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_max_hp + bonus
+        return self.base_max_hp + sum(e.max_hp_bonus for e in get_all_equipped(self.owner))
 
     @property
     def max_mp(self): # return actual max_hp, by summing up the bonuses from all equipped items
-        bonus = sum(equipment.max_mp_bonus for equipment in get_all_equipped(self.owner))
-        return self.base_max_mp + bonus
+        return self.base_max_mp + sum(e.max_mp_bonus for e in get_all_equipped(self.owner))
 
     def attack(self, target, message, player):
         # a simple formula for attack damage
