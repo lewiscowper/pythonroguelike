@@ -141,3 +141,22 @@ def get_equipped_in_slot(slot, inventory): # returns the item in a slot, or None
         if obj.equipment and obj.equipment.slot and obj.equipment.is_equipped:
             return obj.equipment
     return None
+
+
+def make_item(choice):
+    if choice == 'heal':
+        return '!', 'healing potion', libtcod.violet, Item(use_function=cast_heal), None
+    elif choice == 'manabuff':
+        return '!', 'mana potion', libtcod.azure, Item(use_function=cast_mana), None
+    elif choice == 'lightning':
+        return '#', 'scroll of lightning bolt', libtcod.light_yellow, Item(use_function=cast_lightning), None
+    elif choice == 'fireball':
+        return '#', 'scroll of fireball', libtcod.light_yellow, Item(use_function=cast_fireball), None
+    elif choice == 'confuse':
+        return '#', 'scroll of confusion', libtcod.light_yellow, Item(use_function=cast_confuse), None
+    elif choice == 'sword':
+        return '/', 'sword', libtcod.sky, None, Equipment(slot='right hand', power_bonus=3)
+    elif choice == 'shield':
+        return '[', 'shield', libtcod.darker_orange, None, Equipment(slot='left hand', defense_bonus=1)
+    elif choice == 'helmet':
+        return '^', 'helmet', libtcod.darker_han, None, Equipment(slot='head', max_hp_bonus=1)

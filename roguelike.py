@@ -3,7 +3,7 @@ import math
 import shelve
 from constants import *
 from levelmap import *
-from statics import *
+from statics import Item, Equipment, make_item
 from dynamics import *
 from messages import Messaging
 
@@ -228,46 +228,8 @@ def place_objects(room):
         # only place it if the tile is not blocked, and it's not in the first room
         if not is_blocked(x, y):
             choice = random_choice(item_chances)
-            if choice == 'heal':
-                # create a healing potion
-                item_component = Item(use_function=cast_heal)
-                item = GameObject(x, y, '!', 'healing potion', libtcod.violet, item=item_component)
-
-            elif choice =='manabuff':
-                # create a manapotion
-                item_component = Item(use_function=cast_mana)
-                item = GameObject(x, y, '!', 'mana potion', libtcod.azure, item=item_component)
-
-            elif choice =='lightning':
-                # create a lightning bolt scroll
-                item_component = Item(use_function=cast_lightning)
-                item = GameObject(x, y, '#', 'scroll of lightning bolt', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'fireball':
-                # create a fireball scroll
-                item_component = Item(use_function=cast_fireball)
-                item = GameObject(x, y, '#', 'scroll of fireball', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'confuse':
-                # create a confuse scroll
-                item_component = Item(use_function=cast_confuse)
-                item = GameObject(x, y, '#', 'scroll of confusion', libtcod.light_yellow, item=item_component)
-
-            elif choice == 'sword':
-                # create a sword
-                equipment_component = Equipment(slot='right hand', power_bonus=3)
-                item = GameObject(x, y, '/', 'sword', libtcod.sky, equipment=equipment_component)
-
-            elif choice == 'shield':
-                # create a shield
-                equipment_component = Equipment(slot='left hand', defense_bonus=1)
-                item = GameObject(x, y, '[', 'shield', libtcod.darker_orange, equipment=equipment_component)
-
-            elif choice == 'helmet':
-                # create a helmet
-                equipment_component = Equipment(slot='head', hp_bonus=1)
-                item = GameObject(x, y, '^', 'helmet', libtcod.darker_han, equipment=equipment_component)
-
+            symbol, name, colour, item_component, equipment_component = make_item(choice)
+            item = GameObject(x, y, symbol,name, colour, item=item_component, equipment=equipment_component)
             objects.append(item)
             item.send_to_back()  # items appear below other objects
             item.always_visible = True # items are always visible even out of FOV, if in an explored area
