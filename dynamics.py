@@ -137,8 +137,4 @@ def player_manaless(player):
     player.color = libtcod.lightest_grey
 
 def get_all_equipped(obj): # returns a list of equipped items
-    equipped_list = []
-    for item in obj.inventory:
-        if item.equipment and item.equipment.is_equipped:
-            equipped_list.append(item.equipment)
-    return equipped_list
+    return [item.equipment for item in obj.inventory if item.equipment and item.equipment.is_equipped]
