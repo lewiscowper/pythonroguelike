@@ -99,7 +99,6 @@ def make_map():
             for x in range(MAP_WIDTH) ]
 
     rooms = []
-    num_rooms = 0
 
     for r in range(MAX_ROOMS):
         # random width and height
@@ -122,25 +121,16 @@ def make_map():
 
             # "paint" it to the map's tiles
             create_room(level_map, new_room)
-
-            # add some contents to this room, such as monsters
-            place_objects(new_room, num_rooms)
-
             # center coordinates of new room, will be useful later
             (new_x, new_y) = new_room.center()
-
-            if num_rooms == 0:
+            if not rooms:
                 # this is the first room, where the player starts at
                 player.x = new_x
                 player.y = new_y
             else:
-                # all rooms after the first:
+                place_objects(new_room)
                 # connect it to the previous room with a tunnel
-
-                # center coordinates of previous room
-                (prev_x, prev_y) = rooms[num_rooms-1].center()
-
-                # draw a coin (random number that is either 0 or 1)
+                prev_x, prev_y = rooms[-1].center()
                 if libtcod.random_get_int(0, 0, 1) == 1:
                     create_h_tunnel(level_map, prev_x, new_x, prev_y)
                     create_v_tunnel(level_map, prev_y, new_y, new_x)
@@ -148,7 +138,6 @@ def make_map():
                     create_v_tunnel(level_map, prev_y, new_y, prev_x)
                     create_h_tunnel(level_map, prev_x, new_x, new_y)
             rooms.append(new_room)
-            num_rooms += 1
 
     # create stairs at the centre of the last room
     stairs = GameObject(new_x, new_y, '<', 'stairs', libtcod.white, always_visible=True)
@@ -184,7 +173,7 @@ def from_dungeon_level(table):
             return value
     return 0
 
-def place_objects(room, num_rooms):
+def place_objects(room):
     # maximum numberof monsters per room
     max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
 
@@ -217,7 +206,7 @@ def place_objects(room, num_rooms):
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         # only place it if the tile is not blocked, and it's not in the first room.
-        if not is_blocked(x, y) and num_rooms != 0:
+        if not is_blocked(x, y):
             choice = random_choice(monster_chances)
             if choice  == 'orc':
                 # create an orc
@@ -245,7 +234,7 @@ def place_objects(room, num_rooms):
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         # only place it if the tile is not blocked, and it's not in the first room
-        if not is_blocked(x, y) and num_rooms != 0:
+        if not is_blocked(x, y):
             choice = random_choice(item_chances)
             if choice == 'heal':
                 # create a healing potion
