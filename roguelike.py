@@ -704,13 +704,13 @@ def main_menu():
         if choice == 0:  # new game
             new_game()
             play_game()
-        if choice == 1:  # load last game
+        elif choice == 1:  # load last game
             try:
                 load_game()
             except:
                 msgbox('\n No saved game to load.\n', 24)
-                continue
-            play_game()
+            else:
+                play_game()
         elif choice == 2:  # quit
             break
 
