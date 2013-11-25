@@ -675,7 +675,7 @@ def target_monster(max_range=None):
 def closest_monster(max_range):
     # find closest enemy, up to a maximum range, and in the player's FOV
     fighters = ((player.distance_to(o), o) for o in objects if o.fighter and not o == player)
-    visible_fighters = ((d, o) for d, o in fighters if d <= max_range if libtcod.map_is_in_fov(fov_map, o.x, o.y))
+    visible_fighters = [(d, o) for d, o in fighters if d <= max_range if libtcod.map_is_in_fov(fov_map, o.x, o.y)]
     if visible_fighters:
         return min(visible_fighters)[1]
     else:
