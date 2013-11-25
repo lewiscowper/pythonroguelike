@@ -321,8 +321,6 @@ def get_names_under_mouse():
     return names.capitalize()
 
 def render_all():
-    global fov_map, color_dark_wall, color_light_wall
-    global color_dark_ground, color_light_ground
     global fov_recompute
 
     if fov_recompute:
