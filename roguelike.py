@@ -200,21 +200,8 @@ def place_objects(room):
         # only place it if the tile is not blocked, and it's not in the first room.
         if not is_blocked(x, y):
             choice = random_choice(monster_chances)
-            if choice  == 'orc':
-                # create an orc
-                fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
-                ai_component = BasicMonster()
-
-                monster = GameObject(x, y, 'o', 'orc', libtcod.desaturated_green,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
-            elif choice == 'troll':
-                # create a troll
-                fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
-                ai_component = BasicMonster()
-
-                monster = GameObject(x, y, 'T', 'troll', libtcod.darker_green,
-                    blocks=True, fighter=fighter_component, ai=ai_component)
-
+            symbol, colour, fighter_component, ai_component = build_monster(choice)
+            monster = GameObject(x, y, symbol, choice, colour, blocks=True, fighter=fighter_component, ai=ai_component)
             objects.append(monster)
 
     # choose random number of items

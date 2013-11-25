@@ -138,3 +138,11 @@ def player_manaless(player):
 
 def get_all_equipped(obj): # returns a list of equipped items
     return [item.equipment for item in obj.inventory if item.equipment and item.equipment.is_equipped]
+
+def build_monster(choice):
+    if choice  == 'orc': # create an orc
+        fighter_component = Fighter(hp=20, mp=0, defense=0, power=4, xp=35, death_function=monster_death)
+        return ('o', libtcod.desaturated_green, fighter_component, BasicMonster())
+    elif choice == 'troll': # create a troll
+        fighter_component = Fighter(hp=30, mp=0, defense=2, power=8, xp=100, death_function=monster_death)
+        return ('T', libtcod.darker_green, fighter_component, BasicMonster())
