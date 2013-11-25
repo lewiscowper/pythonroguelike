@@ -4,7 +4,7 @@ import shelve
 from constants import *
 from levelmap import *
 from statics import Item, Equipment, make_item
-from dynamics import *
+from dynamics import Fighter, player_death, player_manaless, get_all_equipped, build_monster
 from messages import Messaging
 
 
