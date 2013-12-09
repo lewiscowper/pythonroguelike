@@ -489,25 +489,21 @@ def handle_keys():
                     if object.x == player.x and object.y == player.y and object.item:
                         object.item.pick_up(player.inventory, game_msgs, objects)
                         break
-
-            if key_char == 'i':
+            elif key_char == 'i':
                 # show the inventory; if an item is selected, use it
                 chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use(game_msgs, player, objects, target_monster, closest_monster, target_tile)
-
-            if key_char == 'd':
+            elif key_char == 'd':
                 # show the inventory; if an item is selected, drop it
                 chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.drop(game_msgs, objects, player)
-
-            if key_char == '<':
+            elif key_char == '<':
                 # go down stairs, if the player is on them
                 if stairs.x == player.x and stairs.y == player.y:
                     next_level()
-
-            if key_char == 'c':
+            elif key_char == 'c':
                 # show character information
                 level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
                 msgbox('Character Information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) +
