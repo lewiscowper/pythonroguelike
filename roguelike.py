@@ -174,14 +174,12 @@ def random_choice_index(chances): # choose one option from the list of chances, 
 
     # go through all the chances, keeping the sum so far
     running_sum = 0
-    choice = 0
-    for w in chances:
+    for choice, w in enumerate(chances):
         running_sum += w
 
         # see if the dice landed in the part that corresponds to this choice
         if dice <= running_sum:
             return choice
-        choice += 1
 
 def random_choice(chances_dict):
     # choose one option from the dictionary of chances, returning it's key
