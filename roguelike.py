@@ -1,7 +1,17 @@
 import libtcodpy as libtcod
 import math
 import shelve
-from constants import *
+from constants import (MAP_WIDTH, MAP_HEIGHT,
+                      SCREEN_WIDTH, SCREEN_HEIGHT,
+                      ROOM_MAX_SIZE, ROOM_MIN_SIZE, MAX_ROOMS,
+                      FOV_LIGHT_WALLS, FOV_ALGO,
+                      MSG_X, BAR_WIDTH,
+                      INVENTORY_WIDTH, LEVEL_SCREEN_WIDTH, CHARACTER_SCREEN_WIDTH,
+                      PANEL_HEIGHT, PANEL_Y,
+                      LEVEL_UP_BASE, LEVEL_UP_FACTOR,
+                      LIMIT_FPS,
+                      color_dark_wall, color_dark_ground, color_light_wall, color_light_ground,
+                      TORCH_RADIUS)
 from levelmap import Tile, Rect, create_room, create_h_tunnel, create_v_tunnel
 from statics import Item, Equipment, make_item
 from dynamics import Fighter, player_death, player_manaless, get_all_equipped, build_monster
