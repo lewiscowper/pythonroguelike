@@ -114,7 +114,7 @@ class BasicNPC(object):
 def monster_death(monster, message):
     # transform it into a nasty corpse! it doesn't block, can't be
     # attacked and doesn't move
-    message('The ' + monster.name.capitalize() + ' is dead! You gain ' + str(monster.fighter.xp) + ' experience points.', libtcod.orange)
+    message('The %s is dead! You gain %i experience points.'%(monster.name.capitalize(), monster.fighter.xp), libtcod.orange)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
