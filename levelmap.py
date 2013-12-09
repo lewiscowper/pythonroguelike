@@ -11,6 +11,10 @@ class Tile(object):
             block_sight = blocked
         self.block_sight = block_sight
 
+    def tunnel(self):
+        self.blocked = False
+        self.block_sight = False
+
 
 class Rect(object):
     # a rectangle on the map. used to characterize a room.
@@ -35,19 +39,14 @@ def create_room(level_map, room):
     # go through the tiles in the rectangle and make them passable
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
-            level_map[x][y].blocked = False
-            level_map[x][y].block_sight = False
+            level_map[x][y].tunnel()
 
 
 def create_h_tunnel(level_map, x1, x2, y):
-    # horizontal tunnel. min() and max() are used in case x1>x2
     for x in range(min(x1, x2), max(x1, x2) + 1):
-        level_map[x][y].blocked = False
-        level_map[x][y].block_sight = False
+        level_map[x][y].tunnel()
 
 
 def create_v_tunnel(level_map, y1, y2, x):
-    # vertical tunnel
     for y in range(min(y1, y2), max(y1, y2) + 1):
-        level_map[x][y].blocked = False
-        level_map[x][y].block_sight = False
+        level_map[x][y].tunnel()
