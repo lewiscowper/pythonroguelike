@@ -138,7 +138,7 @@ def cast_fireball(message, player, objects, target_monster, closest_monster, tar
 
 def get_equipped_in_slot(slot, inventory): # returns the item in a slot, or None if it's empty
     for obj in inventory:
-        if obj.equipment and obj.equipment.slot and obj.equipment.is_equipped:
+        if obj.equipment and obj.equipment.slot == slot and obj.equipment.is_equipped:
             return obj.equipment
     return None
 

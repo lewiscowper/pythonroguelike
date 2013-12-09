@@ -1,11 +1,43 @@
 import libtcodpy as libtcod
 import math
 import shelve
-from constants import *
+from constants import (MAP_WIDTH, MAP_HEIGHT,
+                      SCREEN_WIDTH, SCREEN_HEIGHT,
+                      ROOM_MAX_SIZE, ROOM_MIN_SIZE, MAX_ROOMS,
+                      FOV_LIGHT_WALLS, FOV_ALGO,
+                      MSG_X, BAR_WIDTH,
+                      INVENTORY_WIDTH, LEVEL_SCREEN_WIDTH, CHARACTER_SCREEN_WIDTH,
+                      PANEL_HEIGHT, PANEL_Y,
+                      LEVEL_UP_BASE, LEVEL_UP_FACTOR,
+                      LIMIT_FPS,
+                      color_dark_wall, color_dark_ground, color_light_wall, color_light_ground,
+                      TORCH_RADIUS)
 from levelmap import Tile, Rect, create_room, create_h_tunnel, create_v_tunnel
 from statics import Item, Equipment, make_item
-from dynamics import Fighter, player_death, player_manaless, get_all_equipped, build_monster
+from dynamics import Fighter, player_death, player_manaless, build_monster
 from messages import Messaging
+
+
+# Current global values
+
+# game state
+player = None
+game_msgs = None
+game_state = None
+
+# map
+objects = None
+level_map = None
+stairs = None
+dungeon_level = None
+
+# interface
+key = None
+mouse = None
+
+# display
+fov_map = None
+fov_recompute = None
 
 
 class GameObject(object):
@@ -142,14 +174,12 @@ def random_choice_index(chances): # choose one option from the list of chances, 
 
     # go through all the chances, keeping the sum so far
     running_sum = 0
-    choice = 0
-    for w in chances:
+    for choice, w in enumerate(chances):
         running_sum += w
 
         # see if the dice landed in the part that corresponds to this choice
         if dice <= running_sum:
             return choice
-        choice += 1
 
 def random_choice(chances_dict):
     # choose one option from the dictionary of chances, returning it's key
@@ -166,30 +196,11 @@ def from_dungeon_level(table):
     return 0
 
 def place_objects(room):
-    # maximum numberof monsters per room
-    max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
-
-    # chances of each monster
     monster_chances = {}
     monster_chances['orc'] = 80 # orcs always show up, even if all other monsters have 0 chance
     monster_chances['troll'] = from_dungeon_level([[15,3], [30, 5], [60, 7]])
 
-    # maximum number of items per room
-    max_items = from_dungeon_level([[1, 1], [2, 4]])
-
-    # chances of each item (by default they have a chance of 0 at level 1, which then goes up)
-    item_chances = {}
-    item_chances['heal'] = 35 # healing potions always show up, even if all other items have 0 chance
-    item_chances['manabuff'] = 35
-    item_chances['lightning'] = from_dungeon_level([[25, 4]])
-    item_chances['fireball'] = from_dungeon_level([[25, 6]])
-    item_chances['confuse'] = from_dungeon_level([[10, 2]])
-
-    item_chances['sword'] = from_dungeon_level([[5, 3]])
-    item_chances['shield'] = from_dungeon_level([[15, 5]])
-    item_chances['helmet'] = from_dungeon_level([[15, 7]])
-
-    # choose random number of monsters
+    max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
     num_monsters = libtcod.random_get_int(0, 0, max_monsters)
 
     for i in range(num_monsters):
@@ -197,22 +208,31 @@ def place_objects(room):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-        # only place it if the tile is not blocked, and it's not in the first room.
+        # only place it if the tile is not blocked
         if not is_blocked(x, y):
             choice = random_choice(monster_chances)
             symbol, colour, fighter_component, ai_component = build_monster(choice)
             monster = GameObject(x, y, symbol, choice, colour, blocks=True, fighter=fighter_component, ai=ai_component)
             objects.append(monster)
 
-    # choose random number of items
-    num_items = libtcod.random_get_int(0, 0, max_items)
+    item_chances = {}
+    item_chances['heal'] = 35
+    item_chances['manabuff'] = 35
+    item_chances['lightning'] = from_dungeon_level([[25, 4]])
+    item_chances['fireball'] = from_dungeon_level([[25, 6]])
+    item_chances['confuse'] = from_dungeon_level([[10, 2]])
+    item_chances['sword'] = from_dungeon_level([[5, 3]])
+    item_chances['shield'] = from_dungeon_level([[15, 5]])
+    item_chances['helmet'] = from_dungeon_level([[15, 7]])
 
+    max_items = from_dungeon_level([[1, 1], [2, 4]])
+    num_items = libtcod.random_get_int(0, 0, max_items)
     for i in range(num_items):
         # choose random spot for this item
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-        # only place it if the tile is not blocked, and it's not in the first room
+        # only place it if the tile is not blocked
         if not is_blocked(x, y):
             choice = random_choice(item_chances)
             symbol, name, colour, item_component, equipment_component = make_item(choice)
@@ -324,17 +344,13 @@ def player_move_or_attack(dx, dy):
     x = player.x + dx
     y = player.y + dy
 
-    # try to find an attackable object there
-    target = None
     for object in objects:
         if object.fighter and object.x == x and object.y == y:
-            target = object
+            # if there is a target attack it
+            game_state = player.fighter.attack(object, game_msgs, player) or game_state
             break
-
-    # attack if target found, move otherwise
-    if target is not None:
-        game_state = player.fighter.attack(target, game_msgs, player) or game_state
     else:
+        # no target so move
         player.move(dx, dy)
         fov_recompute = True
   
@@ -457,25 +473,21 @@ def handle_keys():
                     if object.x == player.x and object.y == player.y and object.item:
                         object.item.pick_up(player.inventory, game_msgs, objects)
                         break
-
-            if key_char == 'i':
+            elif key_char == 'i':
                 # show the inventory; if an item is selected, use it
                 chosen_item = inventory_menu('Press the key next to an item to use it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use(game_msgs, player, objects, target_monster, closest_monster, target_tile)
-
-            if key_char == 'd':
+            elif key_char == 'd':
                 # show the inventory; if an item is selected, drop it
                 chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.drop(game_msgs, objects, player)
-
-            if key_char == '<':
+            elif key_char == '<':
                 # go down stairs, if the player is on them
                 if stairs.x == player.x and stairs.y == player.y:
                     next_level()
-
-            if key_char == 'c':
+            elif key_char == 'c':
                 # show character information
                 level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
                 msgbox('Character Information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) +
