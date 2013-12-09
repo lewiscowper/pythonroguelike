@@ -344,17 +344,13 @@ def player_move_or_attack(dx, dy):
     x = player.x + dx
     y = player.y + dy
 
-    # try to find an attackable object there
-    target = None
     for object in objects:
         if object.fighter and object.x == x and object.y == y:
-            target = object
+            # if there is a target attack it
+            game_state = player.fighter.attack(object, game_msgs, player) or game_state
             break
-
-    # attack if target found, move otherwise
-    if target is not None:
-        game_state = player.fighter.attack(target, game_msgs, player) or game_state
     else:
+        # no target so move
         player.move(dx, dy)
         fov_recompute = True
   
