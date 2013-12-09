@@ -18,6 +18,28 @@ from dynamics import Fighter, player_death, player_manaless, build_monster
 from messages import Messaging
 
 
+# Current global values
+
+# game state
+player = None
+game_msgs = None
+game_state = None
+
+# map
+objects = None
+level_map = None
+stairs = None
+dungeon_level = None
+
+# interface
+key = None
+mouse = None
+
+# display
+fov_map = None
+fov_recompute = None
+
+
 class GameObject(object):
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
