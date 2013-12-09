@@ -208,7 +208,7 @@ def place_objects(room):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-        # only place it if the tile is not blocked, and it's not in the first room.
+        # only place it if the tile is not blocked
         if not is_blocked(x, y):
             choice = random_choice(monster_chances)
             symbol, colour, fighter_component, ai_component = build_monster(choice)
@@ -232,7 +232,7 @@ def place_objects(room):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-        # only place it if the tile is not blocked, and it's not in the first room
+        # only place it if the tile is not blocked
         if not is_blocked(x, y):
             choice = random_choice(item_chances)
             symbol, name, colour, item_component, equipment_component = make_item(choice)
