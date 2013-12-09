@@ -196,30 +196,11 @@ def from_dungeon_level(table):
     return 0
 
 def place_objects(room):
-    # maximum numberof monsters per room
-    max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
-
-    # chances of each monster
     monster_chances = {}
     monster_chances['orc'] = 80 # orcs always show up, even if all other monsters have 0 chance
     monster_chances['troll'] = from_dungeon_level([[15,3], [30, 5], [60, 7]])
 
-    # maximum number of items per room
-    max_items = from_dungeon_level([[1, 1], [2, 4]])
-
-    # chances of each item (by default they have a chance of 0 at level 1, which then goes up)
-    item_chances = {}
-    item_chances['heal'] = 35 # healing potions always show up, even if all other items have 0 chance
-    item_chances['manabuff'] = 35
-    item_chances['lightning'] = from_dungeon_level([[25, 4]])
-    item_chances['fireball'] = from_dungeon_level([[25, 6]])
-    item_chances['confuse'] = from_dungeon_level([[10, 2]])
-
-    item_chances['sword'] = from_dungeon_level([[5, 3]])
-    item_chances['shield'] = from_dungeon_level([[15, 5]])
-    item_chances['helmet'] = from_dungeon_level([[15, 7]])
-
-    # choose random number of monsters
+    max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
     num_monsters = libtcod.random_get_int(0, 0, max_monsters)
 
     for i in range(num_monsters):
@@ -234,9 +215,18 @@ def place_objects(room):
             monster = GameObject(x, y, symbol, choice, colour, blocks=True, fighter=fighter_component, ai=ai_component)
             objects.append(monster)
 
-    # choose random number of items
-    num_items = libtcod.random_get_int(0, 0, max_items)
+    item_chances = {}
+    item_chances['heal'] = 35
+    item_chances['manabuff'] = 35
+    item_chances['lightning'] = from_dungeon_level([[25, 4]])
+    item_chances['fireball'] = from_dungeon_level([[25, 6]])
+    item_chances['confuse'] = from_dungeon_level([[10, 2]])
+    item_chances['sword'] = from_dungeon_level([[5, 3]])
+    item_chances['shield'] = from_dungeon_level([[15, 5]])
+    item_chances['helmet'] = from_dungeon_level([[15, 7]])
 
+    max_items = from_dungeon_level([[1, 1], [2, 4]])
+    num_items = libtcod.random_get_int(0, 0, max_items)
     for i in range(num_items):
         # choose random spot for this item
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
